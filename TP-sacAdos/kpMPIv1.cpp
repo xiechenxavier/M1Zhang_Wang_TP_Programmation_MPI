@@ -49,12 +49,12 @@ void DistributedDP(vector<int>& weights, vector<int>& values, int knapsackBound,
                    unsigned int** matrixDP, int rankID, int nbprocs) {
   MPI_Barrier(MPI_COMM_WORLD);
   int ceil_charge_unit = ceil((double)knapsackBound / (double)nbprocs);
-  int local_matrix[ceil_charge_unit];
+  int local_matrix[nbItems][ceil_charge_unit];
   int vec_buffer[nbprocs * ceil_charge_unit];
   for (int k = 0; k < ceil_charge_unit; k++) {
-    local_matrix[k] = matrixDP[0][k + rankID * ceil_charge_unit + 1];
+    local_matrix[0][k] = matrixDP[0][k + rankID * ceil_charge_unit + 1];
   }
-  //cout<<'\n';
+  cout<<'\n';
   for (int k = 0; k < knapsackBound + 1; k++) {
       vec_buffer[k] = matrixDP[0][k];
   }
@@ -62,13 +62,13 @@ void DistributedDP(vector<int>& weights, vector<int>& values, int knapsackBound,
     for (int j = 0; j < ceil_charge_unit; j++) {
       int m = rankID * ceil_charge_unit + (j + 1);
       if (weights[i] <= m) {
-        local_matrix[j] = max(
+        local_matrix[i][j] = max(
             values[i] + vec_buffer[m - weights[i] - 1], vec_buffer[m - 1]);
       } else {
-        local_matrix[j] = vec_buffer[m - 1];
+        local_matrix[i][j] = vec_buffer[m - 1];
       }
     }
-    MPI_Allgather(local_matrix, ceil_charge_unit, MPI_INT, vec_buffer, ceil_charge_unit,
+    MPI_Allgather(local_matrix[i], ceil_charge_unit, MPI_INT, vec_buffer, ceil_charge_unit,
                   MPI_INT, MPI_COMM_WORLD);
     for (int k = 1; k < knapsackBound + 1; k++) {
       matrixDP[i][k] = vec_buffer[k-1];

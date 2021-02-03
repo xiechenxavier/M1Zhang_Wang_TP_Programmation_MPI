@@ -54,27 +54,37 @@ void DistributedDP(vector<int>& weights, vector<int>& values, int knapsackBound,
   for (int k = 0; k < ceil_charge_unit; k++) {
     local_matrix[0][k] = matrixDP[0][k + rankID * ceil_charge_unit + 1];
   }
-  cout<<'\n';
-  for (int k = 0; k < knapsackBound + 1; k++) {
-      vec_buffer[k] = matrixDP[0][k];
+  for (int k = 0; k < knapsackBound; k++) {
+      vec_buffer[k] = matrixDP[0][k+1];
   }
   for (int i = 1; i < nbItems; i++) {
     for (int j = 0; j < ceil_charge_unit; j++) {
-      int m = rankID * ceil_charge_unit + (j + 1);
+      int m = rankID * ceil_charge_unit + j + 1;
       if (weights[i] <= m) {
         local_matrix[i][j] = max(
-            values[i] + vec_buffer[m - weights[i] - 1], vec_buffer[m - 1]);
+            values[i] + vec_buffer[max((m - weights[i] - 1), 0)], vec_buffer[m - 1]);
       } else {
         local_matrix[i][j] = vec_buffer[m - 1];
       }
     }
+    
     MPI_Allgather(local_matrix[i], ceil_charge_unit, MPI_INT, vec_buffer, ceil_charge_unit,
                   MPI_INT, MPI_COMM_WORLD);
     for (int k = 1; k < knapsackBound + 1; k++) {
       matrixDP[i][k] = vec_buffer[k-1];
     }
+    
   }
   costSolution = matrixDP[nbItems - 1][knapsackBound];
+  // Backtrack
+
+  //for(int i = 0; i < nbItems; i++) {
+  //  cout<<rankID<<" : "<<"item "<<i<<' ';
+  //  for(int j = 0; j < ceil_charge_unit; j++) {
+  //    cout<<local_matrix[i][j]<<' ';
+  //  }
+  //  cout<<endl;
+  //}
   
 }
 

@@ -66,7 +66,7 @@ void DistributedDP(vector<int>& weights, vector<int>& values, int knapsackBound,
       if (j + 1 <= nb_nums && rankID != 0) {
         MPI_Recv(&num, 1, MPI_INT, rankID - 1, 1, MPI_COMM_WORLD, &status);
       } else if (rankID == 0) {
-        num = j - weights[i] < 0 ? 0 : local_matrix[i-1][j-weights[i]];
+        num = j - weights[i] < 0 ? 0 : local_matrix[i - 1][j - weights[i]];
       } else {
         num = local_matrix[i-1][j-weights[i]];
       }

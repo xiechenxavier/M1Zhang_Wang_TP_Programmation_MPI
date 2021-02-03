@@ -1,1 +1,1 @@
-TP de programmation MPI au Zhang xiechen et Wang yuxuan en binome
+TP de programmation MPI - Zhang Xiechen et Wang Yuxuan en binome

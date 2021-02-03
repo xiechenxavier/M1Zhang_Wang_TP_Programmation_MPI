@@ -49,54 +49,57 @@ void DistributedDP(vector<int>& weights, vector<int>& values, int knapsackBound,
                    unsigned int** matrixDP, int rankID, int nbprocs) {
   MPI_Barrier(MPI_COMM_WORLD);
   int ceil_charge_unit = ceil((double)knapsackBound / (double)nbprocs);
-  int local_matrix[nbItems][ceil_charge_unit];
+  int local_matrix[ceil_charge_unit];
+  int vec_buffer[nbprocs * ceil_charge_unit];
   int num;
   int m;
   MPI_Request send_request, recv_request;
   int nb_nums = min(weights[1], ceil_charge_unit);
   MPI_Status status;
   for (int k = 0; k < ceil_charge_unit; k++) {
-      local_matrix[0][k] = matrixDP[0][rankID*ceil_charge_unit + k + 1];
+      local_matrix[k] = matrixDP[0][rankID*ceil_charge_unit + k + 1];
+  }
+  for (int k = 0; k < knapsackBound; k++) {
+      vec_buffer[k] = matrixDP[0][k+1];
   }
   for (int j = 0; j < nb_nums; j++) {
     if (rankID != nbprocs - 1)
-      MPI_Isend(&local_matrix[0][ceil_charge_unit-1-j], 1, MPI_INT, rankID + 1, 1, MPI_COMM_WORLD, &send_request);
+      MPI_Isend(&local_matrix[ceil_charge_unit-1-j], 1, MPI_INT, rankID + 1, 1, MPI_COMM_WORLD, &send_request);
   }
   for (int i = 1; i < nbItems; i++) {
     for (int j = ceil_charge_unit - 1; j >= 0; j--) {
+      m = rankID * ceil_charge_unit + (j + 1);
       if (j + 1 <= nb_nums && rankID != 0) {
         MPI_Irecv(&num, 1, MPI_INT, rankID - 1, 1, MPI_COMM_WORLD, &recv_request);
         MPI_Wait(&recv_request, &status);
       } else if (rankID == 0) {
-        num = j - weights[i] < 0 ? 0 : local_matrix[i-1][j-weights[i]];
+        num = j - weights[i] < 0 ? 0 : vec_buffer[j-weights[i]];
       } else {
-        num = local_matrix[i-1][j-weights[i]];
+        num = vec_buffer[rankID * ceil_charge_unit + j-weights[i]];
       }
-      m = rankID * ceil_charge_unit + (j + 1);
       if (weights[i] <= m) {
-        local_matrix[i][j] = max(
-            values[i] + num, local_matrix[i - 1][j]);
+        local_matrix[j] = max(
+            values[i] + num, vec_buffer[m - 1]);
       } else {
-        local_matrix[i][j] = local_matrix[i - 1][j];
+        local_matrix[j] = vec_buffer[m - 1];
       }
     }
     if (i != nbItems - 1) nb_nums = min(weights[i+1], ceil_charge_unit);
     if (rankID != nbprocs - 1) {
       for (int k = 0; k < nb_nums; k++) { 
-        MPI_Bsend(&local_matrix[i][ceil_charge_unit - k - 1], 1, MPI_INT, rankID + 1, 1, MPI_COMM_WORLD);
+        MPI_Isend(&local_matrix[ceil_charge_unit - k - 1], 1, MPI_INT, rankID + 1, 1, MPI_COMM_WORLD, &send_request);
         MPI_Wait(&send_request, &status);
       }
     }
-    int vec_buffer[nbprocs * ceil_charge_unit];
-    MPI_Allgather(local_matrix[i], ceil_charge_unit, MPI_INT, vec_buffer, ceil_charge_unit,
-                  MPI_INT, MPI_COMM_WORLD);
-    for (int k = 1; k < knapsackBound + 1; k++) {
-      matrixDP[i][k] = vec_buffer[k-1];
-    }
+
+     MPI_Allgather(local_matrix, ceil_charge_unit, MPI_INT, vec_buffer, ceil_charge_unit,
+                   MPI_INT, MPI_COMM_WORLD);
+     for (int k = 1; k < knapsackBound + 1; k++) {
+       matrixDP[i][k] = vec_buffer[k-1];
+     }
   }
   costSolution = matrixDP[nbItems - 1][knapsackBound];
 }
-
 void BackTrack(int nbItems, int knapsackBound, unsigned int** matrixDP,
                vector<bool>& solution, vector<int>& weights) {
   if (verboseMode) {

@@ -47,15 +47,12 @@ void printKnapsackSolution(vector<bool>& solution) {
 void DistributedDP(vector<int>& weights, vector<int>& values, int knapsackBound,
                    int nbItems, int& costSolution, vector<bool>& solution,
                    int charge_unit, unsigned int** matrixDP, int rankID) {
-  for (int i = 1; i < nbItems; i++) {  // each objet
-
+  for (int i = 1; i < nbItems; i++) {  
     int local_matrix[knapsackBound + 1];
-
     for (int x = 0; x < knapsackBound + 1; x++) {
       local_matrix[x] = 0;
     }
     MPI_Barrier(MPI_COMM_WORLD);
-
     int start = rankID * charge_unit + 1;
     int end = ((rankID + 1) * charge_unit <= knapsackBound)
                   ? (rankID + 1) * charge_unit
@@ -64,7 +61,6 @@ void DistributedDP(vector<int>& weights, vector<int>& values, int knapsackBound,
       if (weights[i] <= m) {
         local_matrix[m] = max(values[i] + matrixDP[i - 1][m - weights[i]],
                             matrixDP[i - 1][m]);
-
       } else {
         local_matrix[m] = matrixDP[i - 1][m];
       }
@@ -72,7 +68,6 @@ void DistributedDP(vector<int>& weights, vector<int>& values, int knapsackBound,
     MPI_Allreduce(local_matrix, matrixDP[i], knapsackBound + 1, MPI_INT, MPI_SUM,
                   MPI_COMM_WORLD);
   }
-
   costSolution = matrixDP[nbItems - 1][knapsackBound];
 }
 
@@ -146,8 +141,6 @@ int main(int argc, char** argv) {
       matrixDP[0][m] = 0;
     else
       matrixDP[0][m] = values[0];
-  for (int m = 0; m < nbItems; m++) cout << values[m] << ' ';
-  cout << endl;
   // Initialize the MPI environment
   MPI_Init(NULL, NULL);
 
@@ -159,7 +152,7 @@ int main(int argc, char** argv) {
   charge_unit = ceil((double)knapsackBound /
                      (double)nbprocs);  // each process take charge cases length
 
-  std::cout << "charge_unit: " << charge_unit << std::endl;
+  //std::cout << "charge_unit: " << charge_unit << std::endl;
 
   auto start = std::chrono::steady_clock::now();
   DistributedDP(weights, values, knapsackBound, nbItems, costSolution, solution,

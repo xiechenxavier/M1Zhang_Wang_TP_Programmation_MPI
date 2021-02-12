@@ -47,26 +47,33 @@ void printKnapsackSolution(vector<unsigned int>& solution) {
 pair<int, int> BackTrack(int nbItems, int part_knapsackBound, int** local_matrix_full,
                vector<unsigned int>& solution, vector<int>& weights, int rankID, pair<int, int>& start_index) {
   solution.resize(nbItems);
-  int m = part_knapsackBound * (rankID + 1) - 1;
+  for (int k = 0; k < nbItems; k++) solution[k] = 0;
+  int m = part_knapsackBound * (rankID + 1);
   int j = start_index.second;
-  int i;
+  int i = start_index.first;
   
-  for (i = start_index.first; i >= 1; i--) {
-    if (m < weights[i] || local_matrix_full[i][j + rankID * part_knapsackBound] == local_matrix_full[i - 1][j+ rankID * part_knapsackBound]) {
+  for (; i >= 1; i--) {
+    if (m < weights[i] || local_matrix_full[i][j] == local_matrix_full[i - 1][j]) {
       solution[i] = 0;
     }
     else {
       solution[i] = 1;
       m -= weights[i];
       j -= weights[i];
-      if (j < 0) return make_pair(i, part_knapsackBound + j - 1);
+      if (j < 0) {
+        // cout<<rankID<<" : "<<i-1<<' '<<j<<endl;
+        return make_pair(i - 1, j + part_knapsackBound); 
+      }
     }
   }
   if (m < weights[0])
     solution[0] = 0;
   else
     solution[0] = 1;
-  return make_pair(i - 1, part_knapsackBound + j);
+  // cout<<rankID<<" : ";
+  // for (int k = 0; k < nbItems; k++) cout<<solution[k]<<' ';
+  // cout<<endl;
+  return make_pair(i + 1, part_knapsackBound + j);
 }
 
 void DistributedDP(vector<int>& weights, vector<int>& values, int knapsackBound,
@@ -95,7 +102,7 @@ void DistributedDP(vector<int>& weights, vector<int>& values, int knapsackBound,
       int m = rankID * ceil_charge_unit + j + 1;
       if (weights[i] <= m) {
         local_matrix[j] = max(
-            values[i] + vec_buffer[max((m - weights[i] - 1), 0)], vec_buffer[m - 1]);
+            values[i] + ((m - weights[i] - 1) >= 0 ? vec_buffer[m - weights[i] - 1] : 0), vec_buffer[m - 1]);
       } else {
         local_matrix[j] = vec_buffer[m - 1];
       }
@@ -111,7 +118,9 @@ void DistributedDP(vector<int>& weights, vector<int>& values, int knapsackBound,
   }
   if (rankID == nbprocs - 1) {
       pair<int, int> start_index (nbItems - 1, ceil_charge_unit - 1);
+      //cout<<rankID<<" : "<<'('<<start_index.first<<","<<start_index.second<<')'<<endl;
       pair<int, int> index(BackTrack(nbItems, ceil_charge_unit, local_matrix_full, local_solution, weights, rankID, start_index));
+      //cout<<rankID<<" : "<<'('<<index.first<<","<<index.second<<')'<<endl;
       MPI_Send(&(index.first), 1, MPI_INT, rankID - 1, 0, MPI_COMM_WORLD);
       MPI_Send(&(index.second), 1, MPI_INT, rankID - 1, 1, MPI_COMM_WORLD);
   } else if (rankID == 0) {

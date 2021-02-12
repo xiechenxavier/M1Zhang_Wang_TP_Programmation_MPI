@@ -62,7 +62,7 @@ void DistributedDP(vector<int>& weights, vector<int>& values, int knapsackBound,
       int m = rankID * ceil_charge_unit + j + 1;
       if (weights[i] <= m) {
         local_matrix[j] = max(
-            values[i] + vec_buffer[max((m - weights[i] - 1), 0)], vec_buffer[m - 1]);
+            values[i] + ((m - weights[i] - 1) >= 0 ? vec_buffer[m - weights[i] - 1] : 0), vec_buffer[m - 1]);
       } else {
         local_matrix[j] = vec_buffer[m - 1];
       }
